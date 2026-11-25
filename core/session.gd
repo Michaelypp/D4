@@ -8,13 +8,14 @@ var board: Board
 var dragon: Dragon
 var score := 0
 var ended := false
+var collision_cell := Vector2i(-1, -1)
 var ingredient_cell := Vector2i(-1, -1)
 var _rng := RandomNumberGenerator.new()
 
 
-func _init(grid_size: Vector2i, seed_value := 121) -> void:
-	board = Board.bordered(grid_size)
-	dragon = Dragon.new(grid_size)
+func _init(grid_size: Vector2i, seed_value := 121, layout: Board = null) -> void:
+	board = layout if layout != null else Board.bordered(grid_size)
+	dragon = Dragon.new(board.size)
 	_rng.seed = seed_value
 	_spawn_ingredient()
 
@@ -28,6 +29,7 @@ func tick() -> void:
 	var body_index := dragon.body.find(next_head)
 	var hits_body := body_index >= 0 and body_index < occupied_count
 	if board.is_solid(next_head) or hits_body:
+		collision_cell = next_head
 		ended = true
 		return
 

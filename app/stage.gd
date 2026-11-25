@@ -46,7 +46,7 @@ func _init(tiles: Dictionary, meshes: Dictionary) -> void:
 		cells_of.get_or_add(tiles[cell], []).append(cell)
 	for kind in cells_of:
 		if kind in meshes:
-			add_child(_scatter(meshes[kind], cells_of[kind]))
+			add_child(_scatter(meshes[kind], cells_of[kind], kind == "floor"))
 		else:
 			push_warning("The kit has no piece named %s; add one and run deno task art" % kind)
 	add_child(_skirt())
@@ -118,7 +118,7 @@ func _skirt() -> MeshInstance3D:
 
 
 ## One MultiMesh draws a copy of mesh in every cell, placed exactly as the kit modeled it.
-func _scatter(mesh: Mesh, cells: Array) -> MultiMeshInstance3D:
+func _scatter(mesh: Mesh, cells: Array, rotate_tiles: bool) -> MultiMeshInstance3D:
 	var multimesh := MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.use_colors = true  # must be set before instance_count
@@ -127,7 +127,9 @@ func _scatter(mesh: Mesh, cells: Array) -> MultiMeshInstance3D:
 	for i in cells.size():
 		var cell: Vector2i = cells[i]
 		# Quarter turns and slight shade changes keep a thousand copies from looking stamped.
-		var turn := Basis(Vector3.UP, rng.randi_range(0, 3) * PI / 2)
+		var turn := Basis.IDENTITY
+		if rotate_tiles:
+			turn = Basis(Vector3.UP, rng.randi_range(0, 3) * PI / 2)
 		multimesh.set_instance_transform(
 			i, Transform3D(turn, Vector3(cell.x + 0.5, 0, cell.y + 0.5))
 		)

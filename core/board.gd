@@ -8,10 +8,21 @@ extends RefCounted
 const TILES := {
 	"floor": {"solid": false},
 	"wall": {"solid": true},
+	"counter": {"solid": true},
+	"table": {"solid": true},
 }
 
 var size: Vector2i
 var tiles := {}  # Vector2i cell -> tile kind name
+
+
+static func restaurant() -> Board:
+	var board := bordered(Vector2i(20, 20))
+	for x in range(6, 14):
+		board.tiles[Vector2i(x, 4)] = "counter"
+	for cell in [Vector2i(4, 15), Vector2i(10, 15), Vector2i(15, 15)]:
+		board.tiles[cell] = "table"
+	return board
 
 
 ## A floor ringed by walls: the default until you load levels from text files.

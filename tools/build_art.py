@@ -9,8 +9,7 @@ deno task art:lts  uses Blender 4.5 LTS, for Intel Macs, which Blender 5 dropped
 deno task blender  opens art/dragon_kit.blend in the Blender app, to look around
 
 Every piece fills one 1x1 grid cell and is made by a builder function listed in
-PIECES (the dragon) or TILES (the ground). The starter's builders all use voxels(),
-but a builder can make any geometry: swap one out and the game picks it up by name.
+PIECES (the robot and belt) or TILES (the restaurant). The game picks up each mesh by name.
 
 Conventions the game relies on (Blender coordinates, Z up):
   - A cell spans x and y from -0.5 to 0.5. +Y is the direction of travel.
@@ -45,10 +44,10 @@ ART = Path(__file__).resolve().parent.parent / "art"
 GLB = ART / "dragon_kit.glb"
 BLEND = ART / "dragon_kit.blend"
 
-VOXELS = 4  # voxels per cell edge
+
 
 MATERIALS = []  # every material, in order; a face's material_index points into this list
-PALETTE = {}  # voxel character -> index in MATERIALS; filled in by make_materials()
+PALETTE = {}  # builder material key -> index in MATERIALS; filled in by make_materials()
 
 
 def reset_scene():
@@ -87,15 +86,16 @@ def srgb(hex_code):
 
 
 def make_materials():
-    """One material per voxel character. Runs after reset_scene(), which would erase them."""
+    """One material per builder material key. Runs after reset_scene(), which would erase them."""
     PALETTE.update({
-        "#": pbr_material("Scales", "#8e44d0", metallic=0.2, roughness=0.45),
-        "*": pbr_material("Gold", "#f2bf3a", metallic=1.0, roughness=0.3),
-        "e": pbr_material("Eye", "#ffb22e", emission="#ffa21a", strength=4.0),
-        "o": pbr_material("Ember", "#ff6a1a", emission="#ff4a08", strength=3.0),
-        "s": pbr_material("Stone", "#9e9883", roughness=0.85),
-        "t": pbr_material("Moss", "#6f8558", roughness=0.9),
-        "w": pbr_material("Brick", "#6b4d3d", roughness=0.9),
+        "#": pbr_material("Charcoal Housing", "#26363d", metallic=0.2, roughness=0.45),
+        "*": pbr_material("Brass and Bamboo", "#c78848", metallic=0.25, roughness=0.3),
+        "e": pbr_material("Cyan Display", "#77f4e1", emission="#5be9e3", strength=4.0),
+        "r": pbr_material("Robot Shell", "#0085bd", metallic=0.15, roughness=0.35),
+        "o": pbr_material("Salmon Accent", "#ff826d", emission="#ff7859", strength=3.0),
+        "s": pbr_material("Ceramic", "#ded8c6", roughness=0.85),
+        "t": pbr_material("Teal Rubber", "#426c6a", roughness=0.9),
+        "w": pbr_material("Walnut", "#714630", roughness=0.9),
     })
 
 
@@ -105,94 +105,76 @@ def make_materials():
 # https://docs.blender.org/api/current/info_gotchas_meshes.html
 
 
-def voxels(bm, layers, below_ground=0):
-    """Add one cube per palette character. Each layer is a top-down view of the cell,
-    from the ground up: the top row is the front (+Y), the bottom row is the back."""
-    for z, layer in enumerate(layers):
-        for row, line in enumerate(layer.split()):
-            for column, char in enumerate(line):
-                if char not in PALETTE:
-                    continue
-                center = (
-                    (column + 0.5) / VOXELS - 0.5,
-                    0.5 - (row + 0.5) / VOXELS,
-                    (z - below_ground + 0.5) / VOXELS,
-                )
-                cube = bmesh.ops.create_cube(bm, size=1 / VOXELS, matrix=Matrix.Translation(center))
-                for face in {f for v in cube["verts"] for f in v.link_faces}:
-                    face.material_index = PALETTE[char]
+def box(bm, material, size, center):
+    transform = Matrix.Translation(center) @ Matrix.Diagonal((*size, 1.0))
+    cube = bmesh.ops.create_cube(bm, size=1.0, matrix=transform)
+    for face in {face for vertex in cube["verts"] for face in vertex.link_faces}:
+        face.material_index = PALETTE[material]
 
 
 def build_head(bm):
-    voxels(bm, ["""
-        .##.
-        ####
-        ####
-        .##.
-        """, """
-        ....
-        e##e
-        .##.
-        .##.
-        """, """
-        ....
-        ....
-        *..*
-        ....
-        """])
+    box(bm, "#", (0.64, 0.74, 0.24), (0, -0.10, 0.15))
+    box(bm, "r", (0.79, 0.72, 0.46), (0, 0.02, 0.46))
+    box(bm, "#", (0.64, 0.11, 0.24), (0, 0.36, 0.54))
+    for x in (-0.16, 0.16):
+        box(bm, "e", (0.12, 0.03, 0.11), (x, 0.425, 0.55))
+    box(bm, "#", (0.70, 0.52, 0.06), (0, 0, 0.72))
+    box(bm, "e", (0.54, 0.09, 0.03), (0, 0.16, 0.76))
 
 
 def build_straight(bm):
-    voxels(bm, ["""
-        .##.
-        .##.
-        .##.
-        .##.
-        """, """
-        ....
-        .*..
-        ....
-        .*..
-        """])
+    box(bm, "#", (0.61, 1.0, 0.17), (0, 0, 0.12))
+    for y in (-0.38, -0.13, 0.13, 0.38):
+        box(bm, "t", (0.47, 0.16, 0.05), (0, y, 0.23))
+    for x in (-0.28, 0.28):
+        box(bm, "*", (0.06, 1.0, 0.06), (x, 0, 0.24))
 
 
 def build_turn(bm):
-    voxels(bm, ["""
-        ....
-        .###
-        .###
-        .##.
-        """])
+    box(bm, "#", (0.62, 0.76, 0.17), (0, -0.12, 0.12))
+    box(bm, "#", (0.19, 0.54, 0.17), (0.405, 0, 0.12))
+    for y in (-0.38, -0.14, 0.10):
+        box(bm, "t", (0.46, 0.15, 0.05), (0, y, 0.23))
+    box(bm, "t", (0.14, 0.44, 0.05), (0.42, 0, 0.23))
+    box(bm, "*", (0.06, 0.76, 0.06), (-0.28, -0.12, 0.24))
+    box(bm, "*", (0.79, 0.06, 0.06), (0.105, 0.25, 0.24))
 
 
 def build_tail(bm):
-    voxels(bm, ["""
-        .##.
-        .##.
-        ..#.
-        ..o.
-        """])
+    box(bm, "#", (0.60, 0.77, 0.17), (0, 0.115, 0.12))
+    for y in (-0.05, 0.16, 0.38):
+        box(bm, "t", (0.43, 0.14, 0.05), (0, y, 0.23))
+    box(bm, "o", (0.27, 0.05, 0.07), (0, -0.27, 0.15))
 
 
 def build_floor(bm):
-    voxels(bm, ["""
-        ssst
-        stss
-        ssss
-        tsss
-        """], below_ground=1)
+    box(bm, "#", (1.0, 1.0, 0.10), (0, 0, -0.20))
+    box(bm, "s", (0.97, 0.97, 0.15), (0, 0, -0.075))
 
 
 def build_wall(bm):
-    voxels(bm, ["""
-        wwww
-        wwww
-        wwww
-        wwww
-        """] * 3)
+    box(bm, "w", (1.0, 1.0, 0.30), (0, 0, 0.15))
+    box(bm, "t", (1.0, 1.0, 0.07), (0, 0, 0.335))
 
 
-PIECES = {  # the dragon kit; the game finds each mesh by these names
+def build_counter(bm):
+    build_floor(bm)
+    box(bm, "w", (0.98, 0.70, 0.55), (0, 0, 0.275))
+    box(bm, "*", (1.0, 0.80, 0.10), (0, 0, 0.60))
+    box(bm, "s", (0.54, 0.30, 0.04), (0, 0, 0.67))
+    box(bm, "o", (0.25, 0.12, 0.05), (0, 0, 0.715))
+
+
+def build_table(bm):
+    build_floor(bm)
+    box(bm, "w", (0.24, 0.24, 0.40), (0, 0, 0.20))
+    box(bm, "*", (0.86, 0.86, 0.11), (0, 0, 0.455))
+    box(bm, "t", (0.38, 0.52, 0.02), (0, 0, 0.51))
+    box(bm, "s", (0.27, 0.27, 0.04), (0, 0, 0.54))
+
+
+
+PIECES = {  # the robot kit; the game finds each mesh by these names
     "head": build_head,
     "straight": build_straight,
     "turn": build_turn,
@@ -201,6 +183,8 @@ PIECES = {  # the dragon kit; the game finds each mesh by these names
 TILES = {  # one entry per kind in core/board.gd's TILES; a new kind is one builder and one line
     "floor": build_floor,
     "wall": build_wall,
+    "counter": build_counter,
+    "table": build_table,
 }
 
 
