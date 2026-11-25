@@ -215,9 +215,9 @@ func _draw_pickup() -> void:
 	var cell := session.ingredient_cell
 	ingredient.visible = not session.board.is_solid(cell)
 	ingredient.position = _center(cell) + Vector3.UP * 0.35
-	score_label.text = "Score: %d   |   Cargo: %d" % [
-		session.score, session.cargo.get(Session.INGREDIENT, 0)
-	]
+	score_label.text = (
+		"Score: %d   |   Cargo: %d" % [session.score, session.cargo.get(Session.INGREDIENT, 0)]
+	)
 	customer_marker.visible = not session.customer_order.is_empty()
 	customer_marker.position = _center(session.customer_cell) + Vector3.UP * 0.6
 	var order_items := PackedStringArray()
@@ -225,7 +225,8 @@ func _draw_pickup() -> void:
 		order_items.append("%s × %d" % [item, session.customer_order[item]])
 	order_label.text = ""
 	if customer_marker.visible:
-		order_label.text = "◆ Customer order: %s" % ", ".join(order_items)
+		var seconds := ceili(session.customer_ticks_left * TICK_SECONDS)
+		order_label.text = "◆ Order: %s   |   %ds" % [", ".join(order_items), seconds]
 	collision_marker.visible = session.ended
 	collision_marker.position = _center(session.collision_cell) + Vector3.UP
 	game_over_panel.visible = session.ended
@@ -240,5 +241,7 @@ func _draw_pickup() -> void:
 				status_label.text = "The order needs an exact count."
 			Session.Delivery.COMPLETE:
 				status_label.text = "Delivered! +%d points" % Session.DELIVERY_BONUS
+			Session.Delivery.TIMED_OUT:
+				status_label.text = "Order expired. +1 empty belt segment."
 			_:
 				status_label.text = ""

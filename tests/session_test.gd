@@ -129,6 +129,7 @@ func test_exact_delivery_consumes_cargo_awards_points_and_shrinks_belt() -> void
 	var customer := session.dragon.next_head()
 	session.customer_cell = customer
 	session.customer_order[Session.INGREDIENT] = 1
+	session.customer_ticks_left = 1
 	session.tick()
 	assert_eq(session.delivery_result, Session.Delivery.COMPLETE)
 	assert_true(session.cargo.is_empty())
@@ -136,3 +137,23 @@ func test_exact_delivery_consumes_cargo_awards_points_and_shrinks_belt() -> void
 	assert_eq(session.score, 1 + Session.DELIVERY_BONUS)
 	assert_true(session.customer_cell != customer)
 	assert_true(not session.customer_order.is_empty())
+	assert_eq(session.customer_ticks_left, Session.ORDER_TICKS)
+
+
+func test_timeout_replaces_customer_and_adds_one_empty_segment() -> void:
+	var session := Session.new(Vector2i(10, 10))
+	session.ingredient_cell = session.dragon.next_head()
+	session.tick()
+	session.ingredient_cell = Vector2i(1, 1)
+	var old_customer := session.customer_cell
+	session.customer_ticks_left = 1
+	session.tick()
+	assert_eq(session.delivery_result, Session.Delivery.TIMED_OUT)
+	assert_true(session.customer_cell != old_customer)
+	assert_eq(session.customer_ticks_left, Session.ORDER_TICKS)
+	var tail: Vector2i = session.dragon.body.back()
+	session.tick()
+	assert_eq(session.dragon.body.size(), 6)
+	assert_eq(session.dragon.body.back(), tail)
+	assert_eq(session.cargo[Session.INGREDIENT], 1)
+	assert_eq(session.score, 1)
