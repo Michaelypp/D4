@@ -215,7 +215,9 @@ func _draw_pickup() -> void:
 	var cell := session.ingredient_cell
 	ingredient.visible = not session.board.is_solid(cell)
 	ingredient.position = _center(cell) + Vector3.UP * 0.35
-	score_label.text = "Score: %d" % session.score
+	score_label.text = "Score: %d   |   Cargo: %d" % [
+		session.score, session.cargo.get(Session.INGREDIENT, 0)
+	]
 	customer_marker.visible = not session.customer_order.is_empty()
 	customer_marker.position = _center(session.customer_cell) + Vector3.UP * 0.6
 	var order_items := PackedStringArray()
@@ -231,4 +233,12 @@ func _draw_pickup() -> void:
 	if not _started:
 		status_label.text = "Press Enter or Space to start · Arrow keys to steer"
 	else:
-		status_label.text = ""
+		match session.delivery_result:
+			Session.Delivery.NEED_MORE:
+				status_label.text = "Collect more cucumbers, then return."
+			Session.Delivery.TOO_MANY:
+				status_label.text = "The order needs an exact count."
+			Session.Delivery.COMPLETE:
+				status_label.text = "Delivered! +%d points" % Session.DELIVERY_BONUS
+			_:
+				status_label.text = ""

@@ -102,3 +102,37 @@ func test_ingredient_respawn_reserves_the_customer_cell() -> void:
 	session.tick()
 	assert_eq(session.score, 1)
 	assert_eq(session.ingredient_cell, Vector2i(-1, -1))
+
+
+func test_entering_customer_cell_without_enough_cargo_preserves_the_order() -> void:
+	var session := Session.new(Vector2i(10, 10))
+	session.ingredient_cell = Vector2i(1, 1)
+	var customer := session.dragon.next_head()
+	session.customer_cell = customer
+	session.customer_order[Session.INGREDIENT] = 2
+	session.tick()
+	assert_eq(session.delivery_result, Session.Delivery.NEED_MORE)
+	assert_eq(session.customer_cell, customer)
+	assert_eq(session.customer_order[Session.INGREDIENT], 2)
+	assert_eq(session.dragon.body.size(), 4)
+	assert_eq(session.score, 0)
+
+
+func test_exact_delivery_consumes_cargo_awards_points_and_shrinks_belt() -> void:
+	var session := Session.new(Vector2i(10, 10))
+	session.ingredient_cell = session.dragon.next_head()
+	session.tick()
+	assert_eq(session.cargo[Session.INGREDIENT], 1)
+	assert_eq(session.dragon.body.size(), 5)
+
+	session.ingredient_cell = Vector2i(1, 1)
+	var customer := session.dragon.next_head()
+	session.customer_cell = customer
+	session.customer_order[Session.INGREDIENT] = 1
+	session.tick()
+	assert_eq(session.delivery_result, Session.Delivery.COMPLETE)
+	assert_true(session.cargo.is_empty())
+	assert_eq(session.dragon.body.size(), 4)
+	assert_eq(session.score, 1 + Session.DELIVERY_BONUS)
+	assert_true(session.customer_cell != customer)
+	assert_true(not session.customer_order.is_empty())

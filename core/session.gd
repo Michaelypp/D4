@@ -4,6 +4,11 @@
 class_name Session
 extends RefCounted
 
+enum Delivery { NONE, NEED_MORE, TOO_MANY, COMPLETE }
+
+const INGREDIENT := "Cucumber"
+const DELIVERY_BONUS := 5
+
 var board: Board
 var dragon: Dragon
 var score := 0
@@ -12,6 +17,8 @@ var collision_cell := Vector2i(-1, -1)
 var ingredient_cell := Vector2i(-1, -1)
 var customer_cell := Vector2i(-1, -1)
 var customer_order: Dictionary[String, int] = {}
+var cargo: Dictionary[String, int] = {}
+var delivery_result := Delivery.NONE
 var _rng := RandomNumberGenerator.new()
 
 
@@ -41,6 +48,29 @@ func tick() -> void:
 	if picking_up:
 		dragon.body.append(old_tail)
 		score += 1
+		cargo[INGREDIENT] = cargo.get(INGREDIENT, 0) + 1
+		delivery_result = Delivery.NONE
+		_spawn_ingredient()
+	if next_head == customer_cell:
+		_try_delivery()
+
+
+func _try_delivery() -> void:
+	var required: int = customer_order[INGREDIENT]
+	var collected: int = cargo.get(INGREDIENT, 0)
+	if collected < required:
+		delivery_result = Delivery.NEED_MORE
+		return
+	if collected > required:
+		delivery_result = Delivery.TOO_MANY
+		return
+
+	cargo.clear()
+	dragon.body.resize(dragon.body.size() - required)
+	score += DELIVERY_BONUS
+	delivery_result = Delivery.COMPLETE
+	_spawn_customer()
+	if board.is_solid(ingredient_cell):
 		_spawn_ingredient()
 
 
@@ -57,6 +87,8 @@ func _spawn_ingredient() -> void:
 
 
 func _spawn_customer() -> void:
+	customer_cell = Vector2i(-1, -1)
+	customer_order.clear()
 	var candidates: Array[Vector2i] = []
 	var neighbors := [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]
 	for y in board.size.y:
@@ -70,4 +102,4 @@ func _spawn_customer() -> void:
 					break
 	if not candidates.is_empty():
 		customer_cell = candidates[_rng.randi_range(0, candidates.size() - 1)]
-		customer_order["Cucumber"] = _rng.randi_range(1, 3)
+		customer_order[INGREDIENT] = _rng.randi_range(1, 3)
