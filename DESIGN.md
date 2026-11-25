@@ -5,8 +5,7 @@ to learn where your project is headed. Replace each _italic prompt_.
 
 ## Target
 
-_One or two sentences: what is this creature, what does it eat, where does it live,
-and what should playing feel like?_
+The moving creature in the game is a robot chef that steers a conveyer built through a sushi restaurant/bar. The robot chef eats sushi ingredients like rice, salmon, nori, cucumber, etc. Each ingredient adds a segment to the belt if combinations are made. Playing should feel fun and immersive and increasingly difficult to navigate around the restaurant space. Grid size sound be 14 x 14 grid including the walls.
 
 ## Menu choices
 
@@ -14,8 +13,9 @@ Two items from two different groups (see the D4 guide's "The menu" tab).
 
 | Item | Group | Done when (in your words) |
 | --- | --- | --- |
-| _item_ | _group_ | _what you will be able to show_ |
-| _item_ | _group_ | _what you will be able to show_ |
+| Item	Group	Done when
+Customer orders and sushi delivery | Systems/Propose your own | The game shows one active customer order and its recipe. Collecting the required ingredients lets the chef deliver at a marked pickup counter. A successful delivery uses those ingredients, awards bonus points, and removes one belt segment per ingredient used. Tests cover a successful delivery and an attempt with missing ingredients. |
+| Text-file levels | Language | Three kitchen layouts load from text files using a legend for floor, tables, counters, and the delivery spot. Adding a layout requires no code changes. Tests load all three and check that each starting area is clear. |
 
 ## Words we use
 
