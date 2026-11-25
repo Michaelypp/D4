@@ -5,7 +5,7 @@ to learn where your project is headed. Replace each _italic prompt_.
 
 ## Target
 
-The moving creature in the game is a robot chef that steers a conveyer built through a sushi restaurant/bar. The robot chef eats sushi ingredients like rice, salmon, nori, cucumber, etc. Each ingredient adds a segment to the belt if combinations are made. Playing should feel fun and immersive and increasingly difficult to navigate around the restaurant space. The grid is 20 × 20, including the walls.
+The player steers a robot chef and its conveyor belt through a 20 × 20 sushi restaurant, including the walls. Each ingredient collected adds a point and a belt segment, making the restaurant harder to navigate. The planned delivery system lets the robot carry ingredients to customers waiting beside walls.
 
 ## Menu choices
 
@@ -13,9 +13,8 @@ Two items from two different groups (see the D4 guide's "The menu" tab).
 
 | Item | Group | Done when (in your words) |
 | --- | --- | --- |
-| Item	Group	Done when
-Customer orders and sushi delivery | Systems/Propose your own | The game shows one active customer order and its recipe. Collecting the required ingredients lets the chef deliver at a marked pickup counter. A successful delivery uses those ingredients, awards bonus points, and removes one belt segment per ingredient used. Tests cover a successful delivery and an attempt with missing ingredients. |
-| Text-file levels | Language | Three kitchen layouts load from text files using a legend for floor, tables, counters, and the delivery spot. Adding a layout requires no code changes. Tests load all three and check that each starting area is clear. |
+| Customer orders and sushi delivery | Systems/Propose your own | Tests show that entering a customer’s wall-adjacent floor cell with too few ingredients leaves the order open, an exact match consumes the cargo, awards bonus points and removes one belt segment per ingredient, a wrong recipe with the right count empties the cargo and adds empty belt segments, and a tick-based timeout adds empty segments and replaces the customer. |
+| Text-file levels | Language | Three kitchen layouts load from text files with a shared legend for floors, walls, tables, counters and the robot start, and tests verify that every layout has room for the starting belt. |
 
 ## Words we use
 
