@@ -23,7 +23,7 @@ permissions: {}
 # A newer push makes an older review moot.
 concurrency:
   group: review-bot
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   # The model may do anything on this throwaway machine, which has no key that can
