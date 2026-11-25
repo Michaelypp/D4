@@ -6,15 +6,34 @@ extends RefCounted
 
 var board: Board
 var dragon: Dragon
+var score := 0
+var ingredient_cell := Vector2i(-1, -1)
+var _rng := RandomNumberGenerator.new()
 
 
-func _init(grid_size: Vector2i) -> void:
+func _init(grid_size: Vector2i, seed_value := 121) -> void:
 	board = Board.bordered(grid_size)
 	dragon = Dragon.new(grid_size)
+	_rng.seed = seed_value
+	_spawn_ingredient()
 
 
-## One step of the rules. TODO for D4: food, growth, and collisions with the dragon's
-## own body and with solid tiles (board.is_solid). Each needs the dragon and something
-## else, which is why they go here rather than in Dragon.tick.
 func tick() -> void:
+	var old_tail: Vector2i = dragon.body.back()
 	dragon.tick()
+	if dragon.body[0] == ingredient_cell:
+		dragon.body.append(old_tail)
+		score += 1
+		_spawn_ingredient()
+
+
+func _spawn_ingredient() -> void:
+	var open_cells: Array[Vector2i] = []
+	for y in board.size.y:
+		for x in board.size.x:
+			var cell := Vector2i(x, y)
+			if not board.is_solid(cell) and cell not in dragon.body:
+				open_cells.append(cell)
+	ingredient_cell = Vector2i(-1, -1)
+	if not open_cells.is_empty():
+		ingredient_cell = open_cells[_rng.randi_range(0, open_cells.size() - 1)]

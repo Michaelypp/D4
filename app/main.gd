@@ -16,13 +16,17 @@ var session := Session.new(GRID)
 var meshes := {}  # kit piece name -> Mesh, shared by everything that shows it (Flyweight)
 var segments: Array[MeshInstance3D] = []
 var camera := Camera3D.new()
+var ingredient := MeshInstance3D.new()
+var score_label := Label.new()
 var _clock := 0.0
 
 
 func _ready() -> void:
 	meshes = Stage.load_kit()
 	_build_stage()
+	_build_pickup_display()
 	_draw_dragon()
+	_draw_pickup()
 
 
 ## Input arrives as events, so even a tap shorter than one frame is never missed.
@@ -38,6 +42,7 @@ func _process(delta: float) -> void:
 		_clock -= TICK_SECONDS
 		session.tick()
 		_draw_dragon()
+		_draw_pickup()
 	_follow(delta)
 
 
@@ -75,3 +80,28 @@ func _draw_dragon() -> void:
 
 func _center(cell: Vector2i) -> Vector3:
 	return Vector3(cell.x + 0.5, 0, cell.y + 0.5)
+
+
+func _build_pickup_display() -> void:
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(0.58, 0.23, 0.42)
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color("ff7859")
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mesh.material = material
+	ingredient.mesh = mesh
+	add_child(ingredient)
+
+	var hud := CanvasLayer.new()
+	add_child(hud)
+	hud.add_child(score_label)
+	score_label.position = Vector2(16, 12)
+	score_label.add_theme_font_size_override("font_size", 24)
+	score_label.add_theme_constant_override("outline_size", 6)
+
+
+func _draw_pickup() -> void:
+	var cell := session.ingredient_cell
+	ingredient.visible = not session.board.is_solid(cell)
+	ingredient.position = _center(cell) + Vector3.UP * 0.35
+	score_label.text = "Score: %d" % session.score
