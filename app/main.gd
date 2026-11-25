@@ -4,6 +4,7 @@ extends Node3D
 
 const TICK_SECONDS := 0.2
 const MOVE_SECONDS := 0.17
+const HUD_HEIGHT := 92.0
 const CAMERA_OFFSET := Vector3(0, 20, 10)
 const ROUND_SEED := 121
 const DIRECTIONS := {
@@ -20,7 +21,9 @@ var segments: Array[MeshInstance3D] = []
 var camera := Camera3D.new()
 var ingredient := MeshInstance3D.new()
 var collision_marker := Label3D.new()
+var customer_marker := Label3D.new()
 var score_label := Label.new()
+var order_label := Label.new()
 var status_label := Label.new()
 var game_over_panel := PanelContainer.new()
 var final_score_label := Label.new()
@@ -80,8 +83,11 @@ func _build_stage() -> void:
 
 func _frame_board() -> void:
 	var viewport_size := get_viewport().get_visible_rect().size
-	var board_size := float(layout.size.x) * 1.22
-	camera.size = board_size * maxf(1.0, viewport_size.y / maxf(viewport_size.x, 1.0))
+	var play_height := maxf(1.0, viewport_size.y - HUD_HEIGHT)
+	var play_width := maxf(1.0, viewport_size.x)
+	var board_size := float(layout.size.x) * 1.10
+	camera.size = board_size * viewport_size.y / minf(play_height, play_width)
+	camera.v_offset = camera.size * HUD_HEIGHT / (2.0 * maxf(viewport_size.y, 1.0))
 
 
 func _draw_dragon(animate := false) -> void:
@@ -147,6 +153,14 @@ func _build_pickup_display() -> void:
 	collision_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	collision_marker.no_depth_test = true
 	add_child(collision_marker)
+	customer_marker.text = "◆"
+	customer_marker.font_size = 96
+	customer_marker.outline_size = 14
+	customer_marker.pixel_size = 0.010
+	customer_marker.modulate = Color("ff75f5")
+	customer_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	customer_marker.no_depth_test = true
+	add_child(customer_marker)
 
 	var hud := CanvasLayer.new()
 	add_child(hud)
@@ -155,9 +169,14 @@ func _build_pickup_display() -> void:
 	score_label.add_theme_font_size_override("font_size", 24)
 	score_label.add_theme_constant_override("outline_size", 6)
 	hud.add_child(status_label)
-	status_label.position = Vector2(16, 48)
+	status_label.position = Vector2(16, 62)
 	status_label.add_theme_font_size_override("font_size", 20)
 	status_label.add_theme_constant_override("outline_size", 6)
+	hud.add_child(order_label)
+	order_label.position = Vector2(16, 40)
+	order_label.add_theme_font_size_override("font_size", 20)
+	order_label.add_theme_constant_override("outline_size", 6)
+	order_label.add_theme_color_override("font_color", Color("ffb9f9"))
 	_build_game_over(hud)
 
 
@@ -165,6 +184,7 @@ func _build_game_over(hud: CanvasLayer) -> void:
 	var center := CenterContainer.new()
 	hud.add_child(center)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.offset_top = HUD_HEIGHT
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.add_child(game_over_panel)
 	game_over_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -196,6 +216,14 @@ func _draw_pickup() -> void:
 	ingredient.visible = not session.board.is_solid(cell)
 	ingredient.position = _center(cell) + Vector3.UP * 0.35
 	score_label.text = "Score: %d" % session.score
+	customer_marker.visible = not session.customer_order.is_empty()
+	customer_marker.position = _center(session.customer_cell) + Vector3.UP * 0.6
+	var order_items := PackedStringArray()
+	for item in session.customer_order:
+		order_items.append("%s × %d" % [item, session.customer_order[item]])
+	order_label.text = ""
+	if customer_marker.visible:
+		order_label.text = "◆ Customer order: %s" % ", ".join(order_items)
 	collision_marker.visible = session.ended
 	collision_marker.position = _center(session.collision_cell) + Vector3.UP
 	game_over_panel.visible = session.ended

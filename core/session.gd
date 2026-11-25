@@ -10,6 +10,8 @@ var score := 0
 var ended := false
 var collision_cell := Vector2i(-1, -1)
 var ingredient_cell := Vector2i(-1, -1)
+var customer_cell := Vector2i(-1, -1)
+var customer_order: Dictionary[String, int] = {}
 var _rng := RandomNumberGenerator.new()
 
 
@@ -18,6 +20,7 @@ func _init(grid_size: Vector2i, seed_value := 121, layout: Board = null) -> void
 	dragon = Dragon.new(board.size)
 	_rng.seed = seed_value
 	_spawn_ingredient()
+	_spawn_customer()
 
 
 func tick() -> void:
@@ -46,8 +49,25 @@ func _spawn_ingredient() -> void:
 	for y in board.size.y:
 		for x in board.size.x:
 			var cell := Vector2i(x, y)
-			if not board.is_solid(cell) and cell not in dragon.body:
+			if cell != customer_cell and not board.is_solid(cell) and cell not in dragon.body:
 				open_cells.append(cell)
 	ingredient_cell = Vector2i(-1, -1)
 	if not open_cells.is_empty():
 		ingredient_cell = open_cells[_rng.randi_range(0, open_cells.size() - 1)]
+
+
+func _spawn_customer() -> void:
+	var candidates: Array[Vector2i] = []
+	var neighbors := [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]
+	for y in board.size.y:
+		for x in board.size.x:
+			var cell := Vector2i(x, y)
+			if board.kind_at(cell) != "floor" or cell == ingredient_cell or cell in dragon.body:
+				continue
+			for direction: Vector2i in neighbors:
+				if board.kind_at(cell + direction) == "wall":
+					candidates.append(cell)
+					break
+	if not candidates.is_empty():
+		customer_cell = candidates[_rng.randi_range(0, candidates.size() - 1)]
+		customer_order["Cucumber"] = _rng.randi_range(1, 3)
