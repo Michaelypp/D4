@@ -7,6 +7,7 @@ extends RefCounted
 var board: Board
 var dragon: Dragon
 var score := 0
+var ended := false
 var ingredient_cell := Vector2i(-1, -1)
 var _rng := RandomNumberGenerator.new()
 
@@ -19,9 +20,20 @@ func _init(grid_size: Vector2i, seed_value := 121) -> void:
 
 
 func tick() -> void:
+	if ended:
+		return
+	var next_head := dragon.next_head()
+	var picking_up := next_head == ingredient_cell
+	var occupied_count := dragon.body.size() - (0 if picking_up else 1)
+	var body_index := dragon.body.find(next_head)
+	var hits_body := body_index >= 0 and body_index < occupied_count
+	if board.is_solid(next_head) or hits_body:
+		ended = true
+		return
+
 	var old_tail: Vector2i = dragon.body.back()
 	dragon.tick()
-	if dragon.body[0] == ingredient_cell:
+	if picking_up:
 		dragon.body.append(old_tail)
 		score += 1
 		_spawn_ingredient()

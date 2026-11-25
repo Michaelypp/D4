@@ -38,3 +38,39 @@ func test_same_seed_repeats_ingredient_placement() -> void:
 	first.tick()
 	second.tick()
 	assert_eq(first.ingredient_cell, second.ingredient_cell)
+
+
+func test_wall_collision_ends_the_run_before_moving() -> void:
+	var session := Session.new(Vector2i(6, 6))
+	session.ingredient_cell = Vector2i(1, 1)
+	session.tick()
+	assert_eq(session.dragon.body[0], Vector2i(4, 3))
+	session.tick()
+	assert_true(session.ended)
+	session.dragon.turn(Vector2i.UP)
+	session.tick()
+	assert_eq(session.dragon.body[0], Vector2i(4, 3))
+	assert_eq(session.score, 0)
+
+
+func test_body_collision_ends_the_run() -> void:
+	var session := Session.new(Vector2i(10, 10))
+	session.ingredient_cell = Vector2i(1, 1)
+	session.dragon.body = [
+		Vector2i(5, 5), Vector2i(4, 5), Vector2i(4, 6),
+		Vector2i(5, 6), Vector2i(6, 6),
+	]
+	session.dragon.turn(Vector2i.DOWN)
+	session.tick()
+	assert_true(session.ended)
+	assert_eq(session.dragon.body[0], Vector2i(5, 5))
+
+
+func test_head_can_enter_the_tail_cell_as_it_moves_away() -> void:
+	var session := Session.new(Vector2i(10, 10))
+	session.ingredient_cell = Vector2i(1, 1)
+	session.dragon.body = [Vector2i(5, 5), Vector2i(4, 5), Vector2i(4, 6), Vector2i(5, 6)]
+	session.dragon.turn(Vector2i.DOWN)
+	session.tick()
+	assert_true(not session.ended)
+	assert_eq(session.dragon.body[0], Vector2i(5, 6))

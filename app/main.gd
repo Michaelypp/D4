@@ -18,7 +18,9 @@ var segments: Array[MeshInstance3D] = []
 var camera := Camera3D.new()
 var ingredient := MeshInstance3D.new()
 var score_label := Label.new()
+var status_label := Label.new()
 var _clock := 0.0
+var _started := false
 
 
 func _ready() -> void:
@@ -31,14 +33,28 @@ func _ready() -> void:
 
 ## Input arrives as events, so even a tap shorter than one frame is never missed.
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_accept"):
+		if _started and not session.ended:
+			return
+		if session.ended:
+			session = Session.new(GRID)
+			camera.position = _center(session.dragon.body[0]) + CAMERA_OFFSET
+			_draw_dragon()
+		_started = true
+		_clock = 0.0
+		_draw_pickup()
+		return
+	if not _started or session.ended:
+		return
 	for action in DIRECTIONS:
 		if event.is_action_pressed(action):
 			session.dragon.turn(DIRECTIONS[action])
 
 
 func _process(delta: float) -> void:
-	_clock += delta
-	while _clock >= TICK_SECONDS:
+	if _started and not session.ended:
+		_clock += delta
+	while _clock >= TICK_SECONDS and not session.ended:
 		_clock -= TICK_SECONDS
 		session.tick()
 		_draw_dragon()
@@ -98,6 +114,10 @@ func _build_pickup_display() -> void:
 	score_label.position = Vector2(16, 12)
 	score_label.add_theme_font_size_override("font_size", 24)
 	score_label.add_theme_constant_override("outline_size", 6)
+	hud.add_child(status_label)
+	status_label.position = Vector2(16, 48)
+	status_label.add_theme_font_size_override("font_size", 20)
+	status_label.add_theme_constant_override("outline_size", 6)
 
 
 func _draw_pickup() -> void:
@@ -105,3 +125,9 @@ func _draw_pickup() -> void:
 	ingredient.visible = not session.board.is_solid(cell)
 	ingredient.position = _center(cell) + Vector3.UP * 0.35
 	score_label.text = "Score: %d" % session.score
+	if session.ended:
+		status_label.text = "Game over · Press Enter or Space to restart"
+	elif not _started:
+		status_label.text = "Press Enter or Space to start · Arrow keys to steer"
+	else:
+		status_label.text = ""
