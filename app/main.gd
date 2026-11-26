@@ -25,7 +25,7 @@ var segments: Array[MeshInstance3D] = []
 var camera := Camera3D.new()
 var ingredient_markers: Dictionary[String, MeshInstance3D] = {}
 var collision_marker := Label3D.new()
-var customer_marker := Label3D.new()
+var customer_marker := MeshInstance3D.new()
 var score_label := Label.new()
 var order_label := Label.new()
 var status_label := Label.new()
@@ -190,13 +190,14 @@ func _build_pickup_display() -> void:
 	collision_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	collision_marker.no_depth_test = true
 	add_child(collision_marker)
-	customer_marker.text = "◆"
-	customer_marker.font_size = 96
-	customer_marker.outline_size = 14
-	customer_marker.pixel_size = 0.010
-	customer_marker.modulate = Color("ff75f5")
-	customer_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	customer_marker.no_depth_test = true
+	var diamond := BoxMesh.new()
+	diamond.size = Vector3(0.53, 0.12, 0.53)
+	var customer_material := StandardMaterial3D.new()
+	customer_material.albedo_color = Color("e449e0")
+	customer_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	diamond.material = customer_material
+	customer_marker.mesh = diamond
+	customer_marker.rotation.y = PI / 4.0
 	add_child(customer_marker)
 
 	var hud := CanvasLayer.new()
@@ -267,7 +268,7 @@ func _draw_pickup() -> void:
 	if customer_marker.visible:
 		var seconds := ceili(session.customer_ticks_left * TICK_SECONDS)
 		order_label.text = (
-			"◆ Order: %s   |   %ds" % [_format_ingredients(session.customer_order), seconds]
+			"Order: %s   |   %ds" % [_format_ingredients(session.customer_order), seconds]
 		)
 	collision_marker.visible = session.ended
 	collision_marker.position = _center(session.collision_cell) + Vector3.UP
