@@ -29,7 +29,7 @@ var _rng := RandomNumberGenerator.new()
 
 func _init(grid_size: Vector2i, seed_value := 121, layout: Board = null) -> void:
 	board = layout if layout != null else Board.bordered(grid_size)
-	dragon = Dragon.new(board.size)
+	dragon = Dragon.new(board.size, 4, board.start)
 	_rng.seed = seed_value
 	_stock_ingredients()
 	_spawn_customer()

@@ -16,6 +16,8 @@ Two items from two different groups (see the D4 guide's "The menu" tab).
 | Customer orders and sushi delivery | Systems/Propose your own | Tests show that entering a customer’s wall-adjacent floor cell with too few ingredients leaves the order open, an exact match consumes the cargo, awards bonus points and removes one belt segment per ingredient, a wrong recipe with the right count empties the cargo and adds empty belt segments, and a tick-based timeout adds empty segments and replaces the customer. |
 | Text-file levels | Language | Three kitchen layouts load from text files with a shared legend for floors, walls, tables, counters and the robot start, and tests verify that every layout has room for the starting belt. |
 
+The game discovers `.txt` layouts in `levels/` in filename order. Use `.` for floor, `#` for walls, `T` for tables, `C` for counters, and one `S` for the robot’s starting head. Keep rows the same width, surround the map with walls, and leave three open cells to the left of `S` and one open cell to the right. Press Tab before starting or after a run to switch restaurants.
+
 ## Words we use
 
 Each word your project uses, what it means, and where it lives in code. A few are

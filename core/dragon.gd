@@ -10,10 +10,10 @@ var heading := Vector2i.RIGHT
 var _turns: Array[Vector2i] = []  # turns wait here until the next tick (Command)
 
 
-func _init(grid_size: Vector2i, length := 4) -> void:
+func _init(grid_size: Vector2i, length := 4, start_cell := Vector2i(-1, -1)) -> void:
 	size = grid_size
 	@warning_ignore("integer_division")  # the middle cell, rounded down, on purpose
-	var start := grid_size / 2
+	var start := grid_size / 2 if start_cell == Vector2i(-1, -1) else start_cell
 	for i in length:
 		body.append(start - heading * i)
 

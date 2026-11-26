@@ -4,7 +4,7 @@ extends Node3D
 
 const TICK_SECONDS := 0.2
 const MOVE_SECONDS := 0.17
-const HUD_HEIGHT := 92.0
+const HUD_HEIGHT := 114.0
 const CAMERA_OFFSET := Vector3(0, 20, 10)
 const ROUND_SEED := 121
 const DIRECTIONS := {
@@ -14,8 +14,12 @@ const DIRECTIONS := {
 	"ui_right": Vector2i.RIGHT,
 }
 
-var layout := Board.restaurant()
-var session := Session.new(layout.size, ROUND_SEED, layout)
+var layout: Board
+var session: Session
+var stage: Stage
+var levels: Array[Board] = []
+var level_names := PackedStringArray()
+var level_index := 0
 var meshes := {}  # kit piece name -> Mesh, shared by everything that shows it (Flyweight)
 var segments: Array[MeshInstance3D] = []
 var camera := Camera3D.new()
@@ -25,6 +29,7 @@ var customer_marker := Label3D.new()
 var score_label := Label.new()
 var order_label := Label.new()
 var status_label := Label.new()
+var level_label := Label.new()
 var game_over_panel := PanelContainer.new()
 var final_score_label := Label.new()
 var _movement: Tween
@@ -34,14 +39,40 @@ var _started := false
 
 func _ready() -> void:
 	meshes = Stage.load_kit()
-	_build_stage()
+	for path in Board.level_paths():
+		var board := Board.load_level(path)
+		if board == null:
+			push_warning("Invalid restaurant layout: %s" % path)
+			continue
+		levels.append(board)
+		level_names.append(path.get_file().get_basename())
+	if levels.is_empty():
+		levels.append(Board.bordered(Vector2i(20, 20)))
+		level_names.append("Practice Floor")
+	add_child(camera)
+	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	get_viewport().size_changed.connect(_frame_board)
 	_build_pickup_display()
+	_select_level()
+
+
+func _select_level() -> void:
+	layout = levels[level_index]
+	session = Session.new(layout.size, ROUND_SEED, layout)
+	_started = false
+	_clock = 0.0
+	_build_stage()
 	_draw_dragon()
 	_draw_pickup()
 
 
 ## Input arrives as events, so even a tap shorter than one frame is never missed.
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
+		if levels.size() > 1 and (not _started or session.ended):
+			level_index = (level_index + 1) % levels.size()
+			_select_level()
+		return
 	if event.is_action_pressed("ui_accept"):
 		if _started and not session.ended:
 			return
@@ -71,13 +102,13 @@ func _process(delta: float) -> void:
 
 ## Frame the whole restaurant so a new ingredient is visible anywhere it spawns.
 func _build_stage() -> void:
-	add_child(Stage.new(session.board.tiles, meshes))
-	add_child(camera)
+	if stage != null:
+		stage.free()
+	stage = Stage.new(layout.tiles, meshes)
+	add_child(stage)
 	var center := Vector3(layout.size.x / 2.0, 0.0, layout.size.y / 2.0)
 	camera.position = center + CAMERA_OFFSET
 	camera.look_at(center)
-	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	get_viewport().size_changed.connect(_frame_board)
 	_frame_board()
 
 
@@ -85,7 +116,7 @@ func _frame_board() -> void:
 	var viewport_size := get_viewport().get_visible_rect().size
 	var play_height := maxf(1.0, viewport_size.y - HUD_HEIGHT)
 	var play_width := maxf(1.0, viewport_size.x)
-	var board_size := float(layout.size.x) * 1.10
+	var board_size := float(maxi(layout.size.x, layout.size.y)) * 1.10
 	camera.size = board_size * viewport_size.y / minf(play_height, play_width)
 	camera.v_offset = camera.size * HUD_HEIGHT / (2.0 * maxf(viewport_size.y, 1.0))
 
@@ -178,6 +209,10 @@ func _build_pickup_display() -> void:
 	status_label.position = Vector2(16, 62)
 	status_label.add_theme_font_size_override("font_size", 20)
 	status_label.add_theme_constant_override("outline_size", 6)
+	hud.add_child(level_label)
+	level_label.position = Vector2(16, 84)
+	level_label.add_theme_font_size_override("font_size", 18)
+	level_label.add_theme_constant_override("outline_size", 6)
 	hud.add_child(order_label)
 	order_label.position = Vector2(16, 40)
 	order_label.add_theme_font_size_override("font_size", 20)
@@ -212,7 +247,7 @@ func _build_game_over(hud: CanvasLayer) -> void:
 	final_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rows.add_child(final_score_label)
 	var restart := Label.new()
-	restart.text = "Enter / Space to restart"
+	restart.text = "Enter / Space: restart · Tab: change restaurant"
 	restart.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rows.add_child(restart)
 
@@ -238,6 +273,9 @@ func _draw_pickup() -> void:
 	collision_marker.position = _center(session.collision_cell) + Vector3.UP
 	game_over_panel.visible = session.ended
 	final_score_label.text = "Final score: %d" % session.score
+	level_label.text = "Restaurant: %s" % level_names[level_index]
+	if not _started and levels.size() > 1:
+		level_label.text += "  ·  Tab to change"
 	if not _started:
 		status_label.text = "Press Enter or Space to start · Arrow keys to steer"
 	else:
