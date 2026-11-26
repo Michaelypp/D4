@@ -35,6 +35,7 @@ var final_score_label := Label.new()
 var _movement: Tween
 var _clock := 0.0
 var _started := false
+var _paused := false
 
 
 func _ready() -> void:
@@ -60,6 +61,7 @@ func _select_level() -> void:
 	layout = levels[level_index]
 	session = Session.new(layout.size, ROUND_SEED, layout)
 	_started = false
+	_paused = false
 	_clock = 0.0
 	_build_stage()
 	_draw_dragon()
@@ -80,21 +82,35 @@ func _unhandled_input(event: InputEvent) -> void:
 			session = Session.new(layout.size, ROUND_SEED, layout)
 			_draw_dragon()
 		_started = true
+		_paused = false
 		_clock = 0.0
 		_draw_pickup()
 		return
 	if not _started or session.ended:
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_P:
+		_paused = not _paused
+		if _movement != null and _movement.is_valid():
+			if _paused:
+				_movement.pause()
+			else:
+				_movement.play()
+		_draw_pickup()
+		return
+	if _paused:
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_X:
 		session.discard_cargo()
 		_draw_pickup()
-		return
-	for action in DIRECTIONS:
-		if event.is_action_pressed(action):
-			session.dragon.turn(DIRECTIONS[action])
+	else:
+		for action in DIRECTIONS:
+			if event.is_action_pressed(action):
+				session.dragon.turn(DIRECTIONS[action])
 
 
 func _process(delta: float) -> void:
+	if _paused:
+		return
 	if _started and not session.ended:
 		_clock += delta
 	while _clock >= TICK_SECONDS and not session.ended:
@@ -284,8 +300,12 @@ func _draw_pickup() -> void:
 	level_label.text = "Restaurant: %s" % level_names[level_index]
 	if not _started and levels.size() > 1:
 		level_label.text += "  ·  Tab to change"
+	elif _started and not session.ended and not _paused:
+		level_label.text += "  ·  P to pause"
 	if not _started:
 		status_label.text = "Press Enter or Space to start · Arrow keys to steer"
+	elif _paused:
+		status_label.text = "Paused · Press P to resume"
 	else:
 		match session.delivery_result:
 			Session.Delivery.NEED_MORE:
