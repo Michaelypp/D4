@@ -230,7 +230,20 @@ func _build_pickup_display() -> void:
 	ingredient_markers[Session.INGREDIENT] = _make_ingredient_marker(cucumber, Color("6fff31"))
 	var salmon := BoxMesh.new()
 	salmon.size = Vector3(0.65, 0.18, 0.34)
-	ingredient_markers[Session.SALMON] = _make_ingredient_marker(salmon, Color("ff4665"))
+	var salmon_marker := _make_ingredient_marker(salmon, Color("ff7944"))
+	ingredient_markers[Session.SALMON] = salmon_marker
+	var stripe_mesh := BoxMesh.new()
+	stripe_mesh.size = Vector3(0.055, 0.018, 0.35)
+	var stripe_material := StandardMaterial3D.new()
+	stripe_material.albedo_color = Color("fff0d6")
+	stripe_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	stripe_mesh.material = stripe_material
+	for x: float in [-0.18, 0.0, 0.18]:
+		var stripe := MeshInstance3D.new()
+		stripe.mesh = stripe_mesh
+		stripe.position = Vector3(x, 0.093, 0.0)
+		stripe.rotation.y = PI / 7.0
+		salmon_marker.add_child(stripe)
 	collision_marker.text = "×"
 	collision_marker.font_size = 96
 	collision_marker.outline_size = 14
