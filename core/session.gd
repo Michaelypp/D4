@@ -4,9 +4,11 @@
 class_name Session
 extends RefCounted
 
-enum Delivery { NONE, NEED_MORE, TOO_MANY, COMPLETE, TIMED_OUT }
+enum Delivery { NONE, NEED_MORE, TOO_MANY, COMPLETE, TIMED_OUT, WRONG_RECIPE }
 
 const INGREDIENT := "Cucumber"
+const SALMON := "Salmon"
+const INGREDIENT_TYPES := [INGREDIENT, SALMON]
 const DELIVERY_BONUS := 5
 const ORDER_TICKS := 100
 
@@ -15,7 +17,7 @@ var dragon: Dragon
 var score := 0
 var ended := false
 var collision_cell := Vector2i(-1, -1)
-var ingredient_cell := Vector2i(-1, -1)
+var ingredients: Dictionary[String, Vector2i] = {}
 var customer_cell := Vector2i(-1, -1)
 var customer_order: Dictionary[String, int] = {}
 var cargo: Dictionary[String, int] = {}
@@ -29,15 +31,17 @@ func _init(grid_size: Vector2i, seed_value := 121, layout: Board = null) -> void
 	board = layout if layout != null else Board.bordered(grid_size)
 	dragon = Dragon.new(board.size)
 	_rng.seed = seed_value
-	_spawn_ingredient()
+	_stock_ingredients()
 	_spawn_customer()
+	_stock_ingredients()
 
 
 func tick() -> void:
 	if ended:
 		return
 	var next_head := dragon.next_head()
-	var picking_up := next_head == ingredient_cell
+	var picked: Variant = ingredients.find_key(next_head)
+	var picking_up := picked != null
 	var grows := picking_up or _pending_empty_segments > 0
 	var occupied_count := dragon.body.size() - (0 if grows else 1)
 	var body_index := dragon.body.find(next_head)
@@ -55,12 +59,13 @@ func tick() -> void:
 		_pending_empty_segments -= 1
 	if picking_up:
 		score += 1
-		cargo[INGREDIENT] = cargo.get(INGREDIENT, 0) + 1
+		cargo[picked] = cargo.get(picked, 0) + 1
+		ingredients.erase(picked)
 		delivery_result = Delivery.NONE
-		_spawn_ingredient()
 	if next_head == customer_cell:
 		_try_delivery()
-		if delivery_result == Delivery.COMPLETE:
+		if delivery_result in [Delivery.COMPLETE, Delivery.WRONG_RECIPE]:
+			_stock_ingredients()
 			return
 	if customer_ticks_left > 0:
 		customer_ticks_left -= 1
@@ -68,11 +73,13 @@ func tick() -> void:
 			_pending_empty_segments += 1
 			delivery_result = Delivery.TIMED_OUT
 			_spawn_customer(customer_cell)
+	if ingredients.size() < INGREDIENT_TYPES.size() or delivery_result == Delivery.TIMED_OUT:
+		_stock_ingredients()
 
 
 func _try_delivery() -> void:
-	var required: int = customer_order[INGREDIENT]
-	var collected: int = cargo.get(INGREDIENT, 0)
+	var required := _ingredient_count(customer_order)
+	var collected := _ingredient_count(cargo)
 	if collected < required:
 		delivery_result = Delivery.NEED_MORE
 		return
@@ -80,25 +87,59 @@ func _try_delivery() -> void:
 		delivery_result = Delivery.TOO_MANY
 		return
 
+	if cargo != customer_order:
+		cargo.clear()
+		_pending_empty_segments += 1
+		delivery_result = Delivery.WRONG_RECIPE
+		_spawn_customer(customer_cell)
+		return
+
 	cargo.clear()
 	dragon.body.resize(dragon.body.size() - required)
 	score += DELIVERY_BONUS
 	delivery_result = Delivery.COMPLETE
 	_spawn_customer()
-	if board.is_solid(ingredient_cell):
-		_spawn_ingredient()
 
 
-func _spawn_ingredient() -> void:
+func _ingredient_count(items: Dictionary[String, int]) -> int:
+	var total := 0
+	for count in items.values():
+		total += count
+	return total
+
+
+func _stock_ingredients() -> void:
+	if ingredients.size() == INGREDIENT_TYPES.size():
+		return
+	var needed: Array[String] = []
+	for kind: String in customer_order:
+		if cargo.get(kind, 0) < customer_order[kind]:
+			needed.append(kind)
+	var stocked := ingredients.values()
 	var open_cells: Array[Vector2i] = []
 	for y in board.size.y:
 		for x in board.size.x:
 			var cell := Vector2i(x, y)
-			if cell != customer_cell and not board.is_solid(cell) and cell not in dragon.body:
+			if cell == customer_cell or cell in stocked or cell in dragon.body:
+				continue
+			if not board.is_solid(cell):
 				open_cells.append(cell)
-	ingredient_cell = Vector2i(-1, -1)
+	if not needed.is_empty() and not needed.any(func(kind): return ingredients.has(kind)):
+		if open_cells.is_empty() and not ingredients.is_empty():
+			var available_kind: String = ingredients.keys()[0]
+			open_cells.append(ingredients[available_kind])
+			ingredients.erase(available_kind)
+		_stock_ingredient(needed[0], open_cells)
+	for kind: String in INGREDIENT_TYPES:
+		if not ingredients.has(kind):
+			_stock_ingredient(kind, open_cells)
+
+
+func _stock_ingredient(kind: String, open_cells: Array[Vector2i]) -> void:
 	if not open_cells.is_empty():
-		ingredient_cell = open_cells[_rng.randi_range(0, open_cells.size() - 1)]
+		var index := _rng.randi_range(0, open_cells.size() - 1)
+		ingredients[kind] = open_cells[index]
+		open_cells.remove_at(index)
 
 
 func _spawn_customer(previous_cell := Vector2i(-1, -1)) -> void:
@@ -107,10 +148,11 @@ func _spawn_customer(previous_cell := Vector2i(-1, -1)) -> void:
 	customer_ticks_left = 0
 	var candidates: Array[Vector2i] = []
 	var neighbors := [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]
+	var stocked := ingredients.values()
 	for y in board.size.y:
 		for x in board.size.x:
 			var cell := Vector2i(x, y)
-			if cell == previous_cell or cell == ingredient_cell or cell in dragon.body:
+			if cell == previous_cell or cell in stocked or cell in dragon.body:
 				continue
 			if board.kind_at(cell) != "floor":
 				continue
@@ -120,5 +162,7 @@ func _spawn_customer(previous_cell := Vector2i(-1, -1)) -> void:
 					break
 	if not candidates.is_empty():
 		customer_cell = candidates[_rng.randi_range(0, candidates.size() - 1)]
-		customer_order[INGREDIENT] = _rng.randi_range(1, 3)
+		for _index in _rng.randi_range(1, 3):
+			var kind: String = INGREDIENT_TYPES[_rng.randi_range(0, INGREDIENT_TYPES.size() - 1)]
+			customer_order[kind] = customer_order.get(kind, 0) + 1
 		customer_ticks_left = ORDER_TICKS

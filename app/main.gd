@@ -19,7 +19,7 @@ var session := Session.new(layout.size, ROUND_SEED, layout)
 var meshes := {}  # kit piece name -> Mesh, shared by everything that shows it (Flyweight)
 var segments: Array[MeshInstance3D] = []
 var camera := Camera3D.new()
-var ingredient := MeshInstance3D.new()
+var ingredient_markers: Dictionary[String, MeshInstance3D] = {}
 var collision_marker := Label3D.new()
 var customer_marker := Label3D.new()
 var score_label := Label.new()
@@ -122,12 +122,13 @@ func _center(cell: Vector2i) -> Vector3:
 	return Vector3(cell.x + 0.5, 0, cell.y + 0.5)
 
 
-func _build_pickup_display() -> void:
+func _make_ingredient_marker(color: Color) -> MeshInstance3D:
+	var ingredient := MeshInstance3D.new()
 	var mesh := SphereMesh.new()
 	mesh.radius = 0.31
 	mesh.height = 0.42
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color("6fff31")
+	material.albedo_color = color
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mesh.material = material
 	ingredient.mesh = mesh
@@ -144,7 +145,12 @@ func _build_pickup_display() -> void:
 	base.mesh = plate
 	base.position.y = -0.30
 	ingredient.add_child(base)
+	return ingredient
 
+
+func _build_pickup_display() -> void:
+	ingredient_markers[Session.INGREDIENT] = _make_ingredient_marker(Color("6fff31"))
+	ingredient_markers[Session.SALMON] = _make_ingredient_marker(Color("ff4665"))
 	collision_marker.text = "×"
 	collision_marker.font_size = 96
 	collision_marker.outline_size = 14
@@ -212,21 +218,22 @@ func _build_game_over(hud: CanvasLayer) -> void:
 
 
 func _draw_pickup() -> void:
-	var cell := session.ingredient_cell
-	ingredient.visible = not session.board.is_solid(cell)
-	ingredient.position = _center(cell) + Vector3.UP * 0.35
+	for kind: String in ingredient_markers:
+		var marker := ingredient_markers[kind]
+		marker.visible = session.ingredients.has(kind)
+		if marker.visible:
+			marker.position = _center(session.ingredients[kind]) + Vector3.UP * 0.35
 	score_label.text = (
-		"Score: %d   |   Cargo: %d" % [session.score, session.cargo.get(Session.INGREDIENT, 0)]
+		"Score: %d   |   Cargo: %s" % [session.score, _format_ingredients(session.cargo)]
 	)
 	customer_marker.visible = not session.customer_order.is_empty()
 	customer_marker.position = _center(session.customer_cell) + Vector3.UP * 0.6
-	var order_items := PackedStringArray()
-	for item in session.customer_order:
-		order_items.append("%s × %d" % [item, session.customer_order[item]])
 	order_label.text = ""
 	if customer_marker.visible:
 		var seconds := ceili(session.customer_ticks_left * TICK_SECONDS)
-		order_label.text = "◆ Order: %s   |   %ds" % [", ".join(order_items), seconds]
+		order_label.text = (
+			"◆ Order: %s   |   %ds" % [_format_ingredients(session.customer_order), seconds]
+		)
 	collision_marker.visible = session.ended
 	collision_marker.position = _center(session.collision_cell) + Vector3.UP
 	game_over_panel.visible = session.ended
@@ -236,12 +243,24 @@ func _draw_pickup() -> void:
 	else:
 		match session.delivery_result:
 			Session.Delivery.NEED_MORE:
-				status_label.text = "Collect more cucumbers, then return."
+				status_label.text = "Collect the missing ingredients, then return."
 			Session.Delivery.TOO_MANY:
 				status_label.text = "The order needs an exact count."
 			Session.Delivery.COMPLETE:
 				status_label.text = "Delivered! +%d points" % Session.DELIVERY_BONUS
 			Session.Delivery.TIMED_OUT:
 				status_label.text = "Order expired. +1 empty belt segment."
+			Session.Delivery.WRONG_RECIPE:
+				status_label.text = "Wrong recipe. Cargo cleared, +1 empty segment."
 			_:
 				status_label.text = ""
+
+
+func _format_ingredients(items: Dictionary[String, int]) -> String:
+	if items.is_empty():
+		return "Empty"
+	var parts := PackedStringArray()
+	for kind: String in Session.INGREDIENT_TYPES:
+		if items.has(kind):
+			parts.append("%s ×%d" % [kind, items[kind]])
+	return ", ".join(parts)
