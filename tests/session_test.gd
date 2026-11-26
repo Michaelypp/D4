@@ -1,6 +1,24 @@
 extends "res://tests/test_case.gd"
 
 
+func test_discard_clears_cargo_without_changing_the_order_or_belt() -> void:
+	var session := Session.new(Vector2i(10, 10))
+	session.ingredients[Session.INGREDIENT] = session.dragon.next_head()
+	session.tick()
+	var order := session.customer_order.duplicate()
+	var customer := session.customer_cell
+	var belt := session.dragon.body.duplicate()
+	var ticks_left := session.customer_ticks_left
+	session.discard_cargo()
+	assert_true(session.cargo.is_empty())
+	assert_eq(session.delivery_result, Session.Delivery.DISCARDED)
+	assert_eq(session.score, 1)
+	assert_eq(session.dragon.body, belt)
+	assert_eq(session.customer_order, order)
+	assert_eq(session.customer_cell, customer)
+	assert_eq(session.customer_ticks_left, ticks_left)
+
+
 func test_a_tick_moves_the_dragon_head() -> void:
 	var session := Session.new(Vector2i(10, 10))
 	session.tick()

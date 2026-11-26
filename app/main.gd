@@ -85,6 +85,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not _started or session.ended:
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_X:
+		session.discard_cargo()
+		_draw_pickup()
+		return
 	for action in DIRECTIONS:
 		if event.is_action_pressed(action):
 			session.dragon.turn(DIRECTIONS[action])
@@ -153,11 +157,8 @@ func _center(cell: Vector2i) -> Vector3:
 	return Vector3(cell.x + 0.5, 0, cell.y + 0.5)
 
 
-func _make_ingredient_marker(color: Color) -> MeshInstance3D:
+func _make_ingredient_marker(mesh: PrimitiveMesh, color: Color) -> MeshInstance3D:
 	var ingredient := MeshInstance3D.new()
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.31
-	mesh.height = 0.42
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -180,8 +181,14 @@ func _make_ingredient_marker(color: Color) -> MeshInstance3D:
 
 
 func _build_pickup_display() -> void:
-	ingredient_markers[Session.INGREDIENT] = _make_ingredient_marker(Color("6fff31"))
-	ingredient_markers[Session.SALMON] = _make_ingredient_marker(Color("ff4665"))
+	var cucumber := CylinderMesh.new()
+	cucumber.top_radius = 0.28
+	cucumber.bottom_radius = 0.28
+	cucumber.height = 0.20
+	ingredient_markers[Session.INGREDIENT] = _make_ingredient_marker(cucumber, Color("6fff31"))
+	var salmon := BoxMesh.new()
+	salmon.size = Vector3(0.65, 0.18, 0.34)
+	ingredient_markers[Session.SALMON] = _make_ingredient_marker(salmon, Color("ff4665"))
 	collision_marker.text = "×"
 	collision_marker.font_size = 96
 	collision_marker.outline_size = 14
@@ -284,15 +291,17 @@ func _draw_pickup() -> void:
 			Session.Delivery.NEED_MORE:
 				status_label.text = "Collect the missing ingredients, then return."
 			Session.Delivery.TOO_MANY:
-				status_label.text = "The order needs an exact count."
+				status_label.text = "Too much cargo. Press X to discard it."
 			Session.Delivery.COMPLETE:
 				status_label.text = "Delivered! +%d points" % Session.DELIVERY_BONUS
 			Session.Delivery.TIMED_OUT:
 				status_label.text = "Order expired. +1 empty belt segment."
 			Session.Delivery.WRONG_RECIPE:
 				status_label.text = "Wrong recipe. Cargo cleared, +1 empty segment."
+			Session.Delivery.DISCARDED:
+				status_label.text = "Cargo discarded. Collect a fresh order."
 			_:
-				status_label.text = ""
+				status_label.text = "" if session.cargo.is_empty() else "X: discard cargo"
 
 
 func _format_ingredients(items: Dictionary[String, int]) -> String:

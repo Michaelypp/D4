@@ -4,7 +4,7 @@
 class_name Session
 extends RefCounted
 
-enum Delivery { NONE, NEED_MORE, TOO_MANY, COMPLETE, TIMED_OUT, WRONG_RECIPE }
+enum Delivery { NONE, NEED_MORE, TOO_MANY, COMPLETE, TIMED_OUT, WRONG_RECIPE, DISCARDED }
 
 const INGREDIENT := "Cucumber"
 const SALMON := "Salmon"
@@ -75,6 +75,14 @@ func tick() -> void:
 			_spawn_customer(customer_cell)
 	if ingredients.size() < INGREDIENT_TYPES.size() or delivery_result == Delivery.TIMED_OUT:
 		_stock_ingredients()
+
+
+func discard_cargo() -> void:
+	if ended or cargo.is_empty():
+		return
+	cargo.clear()
+	delivery_result = Delivery.DISCARDED
+	_stock_ingredients()
 
 
 func _try_delivery() -> void:
