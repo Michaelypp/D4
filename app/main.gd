@@ -4,9 +4,10 @@ extends Node3D
 
 const TICK_SECONDS := 0.2
 const MOVE_SECONDS := 0.17
-const HUD_HEIGHT := 114.0
+const HUD_HEIGHT := 124.0
 const CAMERA_OFFSET := Vector3(0, 20, 10)
 const ROUND_SEED := 121
+const SCORES_PATH := "user://restaurant_scores.cfg"
 const DIRECTIONS := {
 	"ui_up": Vector2i.UP,
 	"ui_down": Vector2i.DOWN,
@@ -28,6 +29,8 @@ var collision_marker := Label3D.new()
 var customer_marker := MeshInstance3D.new()
 var score_label := Label.new()
 var order_label := Label.new()
+var order_timer := ProgressBar.new()
+var order_timer_fill := StyleBoxFlat.new()
 var status_label := Label.new()
 var level_label := Label.new()
 var game_over_panel := PanelContainer.new()
@@ -36,9 +39,11 @@ var _movement: Tween
 var _clock := 0.0
 var _started := false
 var _paused := false
+var _best_scores: Dictionary = {}
 
 
 func _ready() -> void:
+	_load_best_scores()
 	meshes = Stage.load_kit()
 	for path in Board.level_paths():
 		var board := Board.load_level(path)
@@ -116,8 +121,29 @@ func _process(delta: float) -> void:
 	while _clock >= TICK_SECONDS and not session.ended:
 		_clock -= TICK_SECONDS
 		session.tick()
+		if session.ended:
+			_record_best_score()
 		_draw_dragon(not session.ended)
 		_draw_pickup()
+
+
+func _load_best_scores() -> void:
+	var config := ConfigFile.new()
+	if config.load(SCORES_PATH) == OK:
+		var scores: Variant = config.get_value("scores", "restaurants", {})
+		if scores is Dictionary:
+			_best_scores = scores
+
+
+func _record_best_score() -> void:
+	var restaurant := level_names[level_index]
+	if session.score <= int(_best_scores.get(restaurant, 0)):
+		return
+	_best_scores[restaurant] = session.score
+	var config := ConfigFile.new()
+	config.set_value("scores", "restaurants", _best_scores)
+	if config.save(SCORES_PATH) != OK:
+		push_warning("Could not save restaurant records to local storage.")
 
 
 ## Frame the whole restaurant so a new ingredient is visible anywhere it spawns.
@@ -242,6 +268,18 @@ func _build_pickup_display() -> void:
 	order_label.add_theme_font_size_override("font_size", 20)
 	order_label.add_theme_constant_override("outline_size", 6)
 	order_label.add_theme_color_override("font_color", Color("ffb9f9"))
+	hud.add_child(order_timer)
+	order_timer.position = Vector2(16, 108)
+	order_timer.size = Vector2(190, 6)
+	order_timer.max_value = Session.ORDER_TICKS
+	order_timer.show_percentage = false
+	order_timer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var timer_track := StyleBoxFlat.new()
+	timer_track.bg_color = Color("3a242d")
+	timer_track.set_corner_radius_all(3)
+	order_timer_fill.set_corner_radius_all(3)
+	order_timer.add_theme_stylebox_override("background", timer_track)
+	order_timer.add_theme_stylebox_override("fill", order_timer_fill)
 	_build_game_over(hud)
 
 
@@ -288,16 +326,16 @@ func _draw_pickup() -> void:
 	customer_marker.visible = not session.customer_order.is_empty()
 	customer_marker.position = _center(session.customer_cell) + Vector3.UP * 0.6
 	order_label.text = ""
+	order_timer.visible = customer_marker.visible
 	if customer_marker.visible:
-		var seconds := ceili(session.customer_ticks_left * TICK_SECONDS)
-		order_label.text = (
-			"Order: %s   |   %ds" % [_format_ingredients(session.customer_order), seconds]
-		)
+		_draw_order_progress()
 	collision_marker.visible = session.ended
 	collision_marker.position = _center(session.collision_cell) + Vector3.UP
 	game_over_panel.visible = session.ended
-	final_score_label.text = "Final score: %d" % session.score
-	level_label.text = "Restaurant: %s" % level_names[level_index]
+	var restaurant := level_names[level_index]
+	var best := int(_best_scores.get(restaurant, 0))
+	final_score_label.text = "Final score: %d  ·  Best: %d" % [session.score, best]
+	level_label.text = "%s  ·  Best: %d" % [restaurant, best]
 	if not _started and levels.size() > 1:
 		level_label.text += "  ·  Tab to change"
 	elif _started and not session.ended and not _paused:
@@ -322,6 +360,23 @@ func _draw_pickup() -> void:
 				status_label.text = "Cargo discarded. Collect a fresh order."
 			_:
 				status_label.text = "" if session.cargo.is_empty() else "X: discard cargo"
+
+
+func _draw_order_progress() -> void:
+	var parts := PackedStringArray()
+	for kind: String in Session.INGREDIENT_TYPES:
+		if session.customer_order.has(kind):
+			var carried: int = session.cargo.get(kind, 0)
+			parts.append("%s %d/%d" % [kind, carried, session.customer_order[kind]])
+	var seconds := ceili(session.customer_ticks_left * TICK_SECONDS)
+	order_label.text = "Order: %s   |   %ds" % [", ".join(parts), seconds]
+	order_timer.value = session.customer_ticks_left
+	if seconds <= 5:
+		order_timer_fill.bg_color = Color("ff6682")
+	elif seconds <= 10:
+		order_timer_fill.bg_color = Color("ffcd70")
+	else:
+		order_timer_fill.bg_color = Color("78e5b1")
 
 
 func _format_ingredients(items: Dictionary[String, int]) -> String:
